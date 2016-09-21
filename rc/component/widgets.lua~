@@ -1,0 +1,195 @@
+-- require wibox
+wibox = require("wibox")
+
+-- Create wibox to contain all
+mywibox = {}
+
+theme.wibox_bg_darker = beautiful.colors.base3
+
+-- {{{ Wibox
+markup = lain.util.markup
+
+-- seperator
+sep = wibox.widget.textbox(" ")
+-- darker background seperator
+sepd = wibox.widget.background()
+sepd:set_widget(sep)
+sepd:set_bg(theme.wibox_bg_darker)
+
+-- Textclock
+mytextclock = lain.widgets.abase({
+        timeout  = 60,
+        cmd      = "date +'%A %d %B %R'",
+        settings = function()
+            local t_output = ""
+            local o_it = string.gmatch(output, "%S+")
+
+            for i = 1,3 do
+                t_output = t_output .. " " .. o_it(i)
+            end
+
+            widget:set_markup(
+                -- markup("#7788af", t_output) .. markup("#343639", " > ") ..
+                " " .. markup("#de5e1e", o_it(1)) .. " ")
+        end
+})
+clockbg = wibox.widget.background()
+clockbg:set_widget(mytextclock)
+clockbg:set_bg(theme.wibox_bg_darker)
+
+-- Calendar
+lain.widgets.calendar:attach(mytextclock, {font_size = 10})
+
+-- Task
+lain.widgets.contrib.task:attach(mytextclock, {timeout = 10})
+globalkeys = awful.util.table.join(
+    globalkeys,
+    awful.key({modkey, altkey}, "t", lain.widgets.contrib.task.prompt_add),
+    awful.key({modkey, "Shift"}, "t", lain.widgets.contrib.task.prompt_search)
+)
+
+-- Redshift widget
+myredshift = wibox.widget.imagebox()
+lain.widgets.contrib.redshift:attach(
+    myredshift,
+    function ()
+        local icons_dir = require("lain.helpers").icons_dir
+        local rs_on = icons_dir .. "/redshift/redshift_on.png"
+        local rs_off = icons_dir .. "/redshift/redshift_off.png"
+        if lain.widgets.contrib.redshift:is_active() then
+            myredshift:set_image(rs_on)
+        else
+            myredshift:set_image(rs_off)
+        end
+    end
+)
+rsbg = wibox.widget.background()
+rsbg:set_widget(myredshift)
+rsbg:set_bg(theme.wibox_bg_darker)
+
+-- CPU
+cpuwidget = lain.widgets.cpu({
+        settings = function()
+            widget:set_markup(markup("#aaeeff",  " ") ..
+                                  markup("#e33a6e", cpu_now.usage .. "% "))
+        end
+})
+
+-- Coretemp
+tempwidget = lain.widgets.temp({
+        settings = function()
+            widget:set_markup(markup("#f1af5f", coretemp_now .. "°C "))
+        end
+})
+
+-- Battery
+batwidget = lain.widgets.bat({
+        battery = laptop_bat,
+        timeout = 40,
+        settings = function()
+            if bat_now.perc == "N/A" or
+                bat_now.status == "Unknown" or "Charging"
+            then
+                perc = ""
+            elseif tonumber(bat_now.perc) == 100 then
+                perc = ""
+            elseif tonumber(bat_now.perc) >= 75 then
+                perc = ""
+            elseif tonumber(bat_now.perc) >= 50 then
+                perc = ""
+            elseif tonumber(bat_now.perc) >= 25 then
+                perc = ""
+            else
+                perc = ""
+            end
+
+            widget:set_text(" " .. perc .. " ")
+        end
+})
+
+-- ALSA volume
+volumewidget = lain.widgets.alsa({
+        settings = function()
+            if volume_now.status == "off" then
+                volume_now.level = " " .. volume_now.level .. "M"
+                -- elseif tonumber(volume_now.level) >= 50 then
+                --     -- volume_now.level = " " .. volume_now.level
+                --     volume_now.level = " " .. volume_now.level
+            else
+                -- volume_now.level = " " .. volume_now.level
+                volume_now.level = " " .. volume_now.level
+            end
+            -- widget:set_markup(markup("#7493d2", " " .. v .. " "))
+            widget:set_markup(" " .. volume_now.level .. " ")
+        end
+})
+volbg = wibox.widget.background()
+volbg:set_widget(volumewidget)
+volbg:set_bg(theme.wibox_bg_darker)
+
+-- Weather
+weathericon = wibox.widget.imagebox()
+myweather = lain.widgets.weather({
+        city_id = weather_city,
+        timeout = 3600 * 3,
+        lang = "zh_CN",
+        settings = function()
+            descr = weather_now["weather"][1]["description"]
+            units = math.floor(weather_now["main"]["temp"])
+            -- widget:set_markup(markup("#eca4c4", descr .. " " .. units .. "°C"))
+            widget:set_markup(markup("#eca4c4", " " .. units .. "°C "))
+            weathericon:set_image(myweather.icon_path)
+        end
+})
+
+-- Net
+netinfo = lain.widgets.net({
+        notify = "off",
+        settings = function()
+            if iface ~= "network off"
+                and
+                string.match(myweather._layout.text, "N/A")
+            then
+                myweather.update()
+            end
+            widget:set_markup(markup("#87af5f", "  " .. net_now.received)
+                                  ..
+                                  markup("#e54c62", "  " .. net_now.sent .. " "))
+        end
+})
+netbg = wibox.widget.background()
+netbg:set_widget(netinfo)
+netbg:set_bg(theme.wibox_bg_darker)
+
+-- MEM
+memwidget = lain.widgets.mem({
+        settings = function()
+            widget:set_markup(markup("#e0da37",  mem_now.used .. "M "))
+        end
+})
+
+-- MPD
+mpdwidget = lain.widgets.mpd({
+        settings = function()
+            mpd_notification_preset = {
+                text = string.format("%s [%s] - %s\n%s",
+                                     mpd_now.artist,
+                                     mpd_now.album,
+                                     mpd_now.date,
+                                     mpd_now.title)
+            }
+
+            if mpd_now.state == "play" then
+                title  = " [" .. mpd_now.title .. "]"
+            elseif mpd_now.state == "pause" then
+                title  = " [" .. "paused" .. "]"
+            else
+                title  = ""
+            end
+            widget:set_markup(markup("#e54c62", title))
+        end
+})
+mpdbg = wibox.widget.background()
+mpdbg:set_widget(mpdwidget)
+mpdbg:set_bg(theme.wibox_bg_darker)
+-- }}}
